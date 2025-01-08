@@ -22,6 +22,7 @@
 				resize: none;
 			}
 		</style>
+		<script type="module" src="main.js"></script>
 	</head>
 	<body>
 		<div>
@@ -30,169 +31,20 @@
 		</div>
 		<div>
 			<div>Exageration:</div>
-			<input type="range" min="0" max="10" step="0.001" value="0" />
+			<input
+				type="range"
+				min="0"
+				max="10"
+				step="0.001"
+				value="0"
+				id="exageration"
+			/>
 		</div>
 		<div>
 			<canvas></canvas>
 		</div>
+		<div>
+			<button id="export">Export</button>
+		</div>
 	</body>
 </html>
-<script>
-	const data = `
-
-	-243772.154, -4217822.457, 4762585.891
-	-242723.899, -4217613.785, 4762822.592
-	-241695.885, -4217408.495, 4763055.102
-	-240677.280, -4217200.992, 4763288.802
-	-239595.115, -4216984.712, 4763533.176
-	-238571.280, -4216779.753, 4763764.343
-	-237617.819, -4216590.534, 4763977.946
-	-234755.643, -4215996.377, 4764641.104
-
-	`
-		.trim()
-		.split('\n')
-		.map((line) => {
-			return line.split(/\s*,\s*/).map(Number)
-		})
-
-	const dotRadius = 1
-
-	const Vec = {
-		minus: ([ax, ay, az], [bx, by, bz]) => [ax - bx, ay - by, az - bz],
-		plus: ([ax, ay, az], [bx, by, bz]) => [ax + bx, ay + by, az + bz],
-		len: ([x, y, z]) => Math.sqrt(x * x + y * y + z * z),
-		dist: (a, b) => Vec.len(Vec.minus(a, b)),
-		scale: ([x, y, z], s) => [x * s, y * s, z * s],
-		normalize: (v) => Vec.scale(v, 1 / Vec.len(v)),
-	}
-
-	function findFurthestPair(data) {
-		let pair = null
-		let distance = 0
-		for (let i = 0; i < data.length; ++i) {
-			let a = data[i]
-			for (let j = i + 1; j < data.length; ++j) {
-				let b = data[j]
-				const dist = Vec.dist(a, b)
-				if (dist > distance) {
-					distance = dist
-					pair = [a, b]
-				}
-			}
-		}
-		return pair
-	}
-
-	function alignWithX(dirRef, data) {
-		function zRot() {
-			const [x, y] = dirRef
-			const len = Vec.len([x, y, 0])
-			const sin = y / len
-			const cos = x / len
-			;[dirRef, ...data] = [dirRef, ...data].map((vec) => {
-				const [x, y, z] = vec
-				return [x * cos + y * sin, y * cos - x * sin, z]
-			})
-		}
-		function yRot() {
-			const [x, _, z] = dirRef
-			const len = Vec.len([x, 0, z])
-			const sin = z / len
-			const cos = x / len
-			;[dirRef, ...data] = [dirRef, ...data].map((vec) => {
-				const [x, y, z] = vec
-				return [x * cos + z * sin, y, z * cos - x * sin]
-			})
-		}
-		zRot()
-		yRot()
-		return data
-	}
-
-	function pullCenterUp(data) {
-		let sum = [0, 0, 0]
-		for (const vec of data) {
-			sum = Vec.plus(sum, vec)
-		}
-		const center = Vec.scale(sum, 1 / data.length)
-		const [_, y, z] = center
-		const len = Vec.len([0, y, z])
-		const cos = y / len
-		const sin = z / len
-		return data.map((vec) => {
-			const [x, y, z] = vec
-			return [x, y * cos + z * sin, z * cos - y * sin]
-		})
-	}
-
-	function get2DPlot(data) {
-		const [a, b] = findFurthestPair(data)
-		const diff = Vec.minus(b, a)
-		const dir = Vec.normalize(diff)
-		data = alignWithX(dir, data)
-		data = pullCenterUp(data)
-		return data
-	}
-
-	function plot(data, canvas, exageration = 1) {
-		const ctx = canvas.getContext('2d')
-		const width = (canvas.width = 800)
-		const height = (canvas.height = 600)
-		let [xMin, xMax] = [Infinity, -Infinity]
-		let [yMin, yMax] = [Infinity, -Infinity]
-		for (const [x, y, _] of data) {
-			xMin = Math.min(xMin, x)
-			yMin = Math.min(yMin, y)
-			xMax = Math.max(xMax, x)
-			yMax = Math.max(yMax, y)
-		}
-		const xDelta = xMax - xMin
-		const yDelta = yMax - yMin
-		let scale = 1
-		if (xDelta / yDelta > width / height) {
-			scale = width / xDelta
-		} else {
-			scale = height / yDelta
-		}
-		const xOffset = (width - xDelta * scale) / 2
-		const yOffset = (height - yDelta * scale) / 2
-		ctx.fillStyle = '#222'
-		ctx.fillRect(0, 0, width, height)
-		ctx.fillStyle = '#07f'
-		for (const [x, y, _] of data) {
-			const px = (x - xMin) * scale + xOffset
-			const tempPy = height - (y - yMin) * scale - yOffset
-			const py = (tempPy - height / 2) * exageration + height / 2
-			ctx.beginPath()
-			ctx.arc(px, py, dotRadius, 0, Math.PI * 2)
-			ctx.fill()
-		}
-	}
-
-	const textarea = document.querySelector('textarea')
-	const canvas = document.querySelector('canvas')
-	const input = document.querySelector('input')
-	let plotData = get2DPlot(data)
-
-	textarea.value = data.map((vec) => vec.join(', ')).join('\n')
-
-	plot(plotData, canvas)
-
-	input.addEventListener('input', (e) => {
-		const exageration = Math.exp(input.value)
-		plot(plotData, canvas, exageration)
-	})
-
-	textarea.addEventListener('change', () => {
-		const data = textarea.value
-			.trim()
-			.split(/\s*\n\s*/)
-			.map((line) => {
-				return line.split(/\s*,\s*/).map(Number)
-			})
-		plotData = get2DPlot(data)
-		const exageration = Math.exp(input.value)
-		plot(plotData, canvas, exageration)
-	})
-</script>
