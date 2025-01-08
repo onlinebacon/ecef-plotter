@@ -1,4 +1,4 @@
-const req = await fetch('/pontchartrain.csv')
+const req = await fetch('./pontchartrain.csv')
 const raw = await req.text()
 
 const data = raw
