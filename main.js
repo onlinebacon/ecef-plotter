@@ -80,7 +80,7 @@ function pullCenterUp(data) {
 }
 
 function startAtOrigin(data) {
-	const [x, y, z] = data[0]
+	const [x, y, z] = data.reduce((a, b) => a[0] > b[0] ? b : a);
 	return data.map((vec) => Vec.minus(vec, [x, y, z]))
 }
 
